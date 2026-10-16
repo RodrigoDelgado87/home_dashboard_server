@@ -1,0 +1,22 @@
+services:
+  homedash:
+    build: .
+    image: homedash:latest
+    container_name: homedash
+    restart: unless-stopped
+    ports:
+      - "9999:8000"            # acesse em http://IP-DO-SERVIDOR:9999
+    environment:
+      - TZ=America/Sao_Paulo
+      - METRICS_INTERVAL=2     # segundos entre coletas
+    volumes:
+      # descoberta de containers (somente leitura de fato: o app só faz listagem)
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # métricas do host
+      - /proc:/host/proc:ro
+      # raiz do host para uso de disco, hostname e versão do SO
+      - /:/hostfs:ro,rslave
+      # configurações salvas (apps ocultos, nomes, links manuais)
+      - ./data:/data
+    labels:
+      - homedash.self=true     # não mostrar o próprio dashboard na lista

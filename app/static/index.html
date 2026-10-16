@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>HomeDash</title>
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2360a5fa' stroke-width='2'><rect x='3' y='3' width='7' height='7' rx='1.5'/><rect x='14' y='3' width='7' height='7' rx='1.5'/><rect x='3' y='14' width='7' height='7' rx='1.5'/><rect x='14' y='14' width='7' height='7' rx='1.5'/></svg>">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 24 24" class="brand-icon" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
+      <div>
+        <h1 id="hostname">HomeDash</h1>
+        <p id="host-sub" class="muted">Conectando…</p>
+      </div>
+    </div>
+    <div class="topbar-right">
+      <div class="uptime"><span class="muted">Uptime</span> <strong id="uptime">–</strong></div>
+      <span id="conn" class="conn" title="Conexão com o servidor"></span>
+    </div>
+  </header>
+
+  <main>
+    <section class="metrics">
+      <article class="card">
+        <header><h2>CPU</h2><span class="muted small" id="cpu-model"></span></header>
+        <div class="card-main">
+          <div class="ring" id="cpu-ring"><svg viewBox="0 0 100 100"><circle class="track" cx="50" cy="50" r="42"/><circle class="value" cx="50" cy="50" r="42"/></svg><span class="ring-label">–</span></div>
+          <dl class="stats">
+            <div><dt>Núcleos</dt><dd id="cpu-cores">–</dd></div>
+            <div><dt>Frequência</dt><dd id="cpu-freq">–</dd></div>
+            <div><dt title="Média de carga em 1, 5 e 15 min">Load</dt><dd id="cpu-load">–</dd></div>
+          </dl>
+        </div>
+        <div class="cores" id="cpu-cores-bars"></div>
+        <svg class="spark" id="cpu-spark" viewBox="0 0 100 32" preserveAspectRatio="none"></svg>
+      </article>
+
+      <article class="card">
+        <header><h2>Temperatura</h2><span class="muted small" id="temp-source"></span></header>
+        <div class="card-main">
+          <div class="ring" id="temp-ring"><svg viewBox="0 0 100 100"><circle class="track" cx="50" cy="50" r="42"/><circle class="value" cx="50" cy="50" r="42"/></svg><span class="ring-label">–</span></div>
+          <ul class="sensor-list" id="sensors"></ul>
+        </div>
+        <svg class="spark" id="temp-spark" viewBox="0 0 100 32" preserveAspectRatio="none"></svg>
+      </article>
+
+      <article class="card">
+        <header><h2>Memória</h2><span class="muted small" id="mem-total"></span></header>
+        <div class="card-main">
+          <div class="ring" id="mem-ring"><svg viewBox="0 0 100 100"><circle class="track" cx="50" cy="50" r="42"/><circle class="value" cx="50" cy="50" r="42"/></svg><span class="ring-label">–</span></div>
+          <dl class="stats">
+            <div><dt>Em uso</dt><dd id="mem-used">–</dd></div>
+            <div><dt>Disponível</dt><dd id="mem-avail">–</dd></div>
+            <div><dt>Cache/buffers</dt><dd id="mem-cache">–</dd></div>
+          </dl>
+        </div>
+        <div class="bar-row"><span class="muted small">Swap</span><div class="bar"><span id="swap-bar"></span></div><span class="small" id="swap-text">–</span></div>
+        <svg class="spark" id="mem-spark" viewBox="0 0 100 32" preserveAspectRatio="none"></svg>
+      </article>
+
+      <article class="card">
+        <header><h2>Rede &amp; E/S</h2><span class="muted small" id="net-ifaces"></span></header>
+        <div class="net-rates">
+          <div><span class="arrow down">↓</span><strong id="net-rx">–</strong><span class="muted small">download</span></div>
+          <div><span class="arrow up">↑</span><strong id="net-tx">–</strong><span class="muted small">upload</span></div>
+        </div>
+        <dl class="stats inline">
+          <div><dt>Leitura disco</dt><dd id="io-read">–</dd></div>
+          <div><dt>Escrita disco</dt><dd id="io-write">–</dd></div>
+        </dl>
+        <svg class="spark" id="net-spark" viewBox="0 0 100 32" preserveAspectRatio="none"></svg>
+      </article>
+
+      <article class="card wide">
+        <header><h2>Armazenamento</h2></header>
+        <ul class="disk-list" id="disks"></ul>
+      </article>
+    </section>
+
+    <section class="apps-section">
+      <div class="section-head">
+        <h2>Aplicações</h2>
+        <div class="toolbar">
+          <label class="toggle"><input type="checkbox" id="show-hidden"><span>Mostrar ocultos</span></label>
+          <button class="btn" id="add-link">+ Adicionar link</button>
+        </div>
+      </div>
+      <p class="alert" id="docker-error" hidden></p>
+      <div class="apps-grid" id="apps"></div>
+      <details class="others" id="others-wrap">
+        <summary>Outros containers sem interface web <span class="muted" id="others-count"></span></summary>
+        <div class="apps-grid" id="others"></div>
+      </details>
+    </section>
+  </main>
+
+  <dialog id="edit-dialog">
+    <form method="dialog" id="edit-form">
+      <h3 id="edit-title">Editar</h3>
+      <label>Nome<input name="name" id="f-name" autocomplete="off"></label>
+      <label>URL<input name="url" id="f-url" autocomplete="off" placeholder="http://192.168.0.10:8096"></label>
+      <label>Ícone <span class="muted small">(nome em dashboard-icons ou URL de imagem)</span><input name="icon" id="f-icon" autocomplete="off"></label>
+      <p class="muted small" id="edit-hint"></p>
+      <div class="dialog-actions">
+        <button type="button" class="btn danger" id="edit-reset">Restaurar padrão</button>
+        <span class="spacer"></span>
+        <button type="button" class="btn" value="cancel" id="edit-cancel">Cancelar</button>
+        <button type="submit" class="btn primary" value="save">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
