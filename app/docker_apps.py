@@ -96,8 +96,9 @@ def icon_url(icon):
     return f"{ICON_BASE}/{icon}.png"
 
 
-def pick_port(published, known):
-    """published: {porta_interna: porta_no_host}. Retorna (interna, host)."""
+def pick_port(published, known, strict=False):
+    """published: {porta_interna: porta_no_host}. Retorna (interna, host).
+    strict: não cai no fallback de "qualquer porta publicada"."""
     if not published:
         return None, None
     known_port = known.get("port")
@@ -106,6 +107,8 @@ def pick_port(published, known):
     for port in WEB_PORT_PREFERENCE:
         if port in published:
             return port, published[port]
+    if strict:
+        return None, None
     private = min(published, key=lambda p: published[p])
     return private, published[private]
 
@@ -144,6 +147,49 @@ class DockerApps:
             self._client = None
             return [], f"Não foi possível acessar o Docker: {exc}"
 
+        # 1ª passada: portas publicadas de cada container
+        published_by_id = {}
+        id_by_name = {}
+        for c in raw:
+            published = {}
+            for p in c.get("Ports") or []:
+                if p.get("Type") == "tcp" and p.get("PublicPort"):
+                    published.setdefault(p["PrivatePort"], p["PublicPort"])
+            published_by_id[c["Id"]] = published
+            for n in c.get("Names") or []:
+                id_by_name[n.lstrip("/")] = c["Id"]
+
+        def resolve_parent(network_mode):
+            ref = network_mode.split(":", 1)[1]
+            if ref in id_by_name:
+                return id_by_name[ref]
+            return next((cid for cid in published_by_id if cid.startswith(ref)), None)
+
+        # Containers com network_mode "container:X" (ex.: qBittorrent atrás do
+        # Gluetun) não publicam portas: elas aparecem no container X. O filho
+        # reivindica as portas dele que estão publicadas no pai.
+        borrowed = {}   # id do filho -> {interna: host}
+        lent = {}       # id do pai -> portas internas cedidas
+        for c in raw:
+            network_mode = (c.get("HostConfig") or {}).get("NetworkMode", "")
+            if not network_mode.startswith("container:"):
+                continue
+            parent = resolve_parent(network_mode)
+            if not parent:
+                continue
+            name = (c.get("Names") or [""])[0].lstrip("/")
+            _, known = match_known(image_slug(c.get("Image", "")))
+            if not known:
+                _, known = match_known(name.lower())
+            wanted = set(self._exposed_ports(client, c["Id"]))
+            if known.get("port"):
+                wanted.add(known["port"])
+            parent_pub = published_by_id.get(parent, {})
+            claim = {p: parent_pub[p] for p in wanted if p in parent_pub}
+            if claim:
+                borrowed[c["Id"]] = claim
+                lent.setdefault(parent, set()).update(claim)
+
         containers = []
         for c in raw:
             labels = c.get("Labels") or {}
@@ -156,10 +202,9 @@ class DockerApps:
             if not known_key:
                 known_key, known = match_known(name.lower())
 
-            published = {}
-            for p in c.get("Ports") or []:
-                if p.get("Type") == "tcp" and p.get("PublicPort"):
-                    published.setdefault(p["PrivatePort"], p["PublicPort"])
+            published = {p: h for p, h in published_by_id[c["Id"]].items()
+                         if p not in lent.get(c["Id"], ())}
+            published.update(borrowed.get(c["Id"], {}))
             network_mode = (c.get("HostConfig") or {}).get("NetworkMode", "")
             if network_mode == "host":
                 for port in self._exposed_ports(client, c["Id"]):
@@ -167,7 +212,7 @@ class DockerApps:
                 if known.get("port"):
                     published.setdefault(known["port"], known["port"])
 
-            private, port = pick_port(published, known)
+            private, port = pick_port(published, known, strict=c["Id"] in lent)
             if labels.get(LABEL + "port", "").isdigit():
                 port = int(labels[LABEL + "port"])
                 private = port

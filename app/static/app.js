@@ -202,7 +202,7 @@ function tileHtml(a) {
     ? `<span class="dot ${escapeHtml(a.state)}"></span>${a.port ? ":" + a.port : escapeHtml(a.state)}`
     : `<span class="dot running"></span>link`;
   const tag = url ? "a" : "div";
-  const href = url ? ` href="${escapeHtml(url)}" target="_blank" rel="noopener"` : "";
+  const href = url ? ` href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer"` : "";
   const classes = ["app-tile", a.hidden && "is-hidden", a.container && a.state !== "running" && "stopped"].filter(Boolean).join(" ");
   const title = a.container ? `${a.image}\n${a.status || ""}` : a.url;
   return `
